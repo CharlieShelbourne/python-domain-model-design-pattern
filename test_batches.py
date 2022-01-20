@@ -33,7 +33,7 @@ def test_allocating_to_a_batch_reduces_avaliable_quantity():
     orderline = OrderLine(order_ref=0, sku="SMALL-TABLE", quantity=5)
     batch.allocate(orderline)
 
-    assert batch.quantity == 15
+    assert batch.available_quantity == 15
 
 # test logit for what we can allocate
 def make_batch_and_line(sku, batch_qty, order_qty):
@@ -44,16 +44,34 @@ def make_batch_and_line(sku, batch_qty, order_qty):
 # test we cannot allocate orderline to batch when order is large than stock in batch
 def test_small_order_issued_from_large_batch():
     large_batch, small_order = make_batch_and_line("ELEGANT-LAMP", batch_qty=10, order_qty=2)
-    assert large_batch.allocate(small_order) is True
+    assert large_batch.can_allocate(small_order) is True
 
 def test_large_order_issued_from_small_batch():
     small_batch, large_order = make_batch_and_line("ELEGANT-LAMP", batch_qty=5, order_qty=8)
-    assert small_batch.allocate(large_order) is False
+    assert small_batch.can_allocate(large_order) is False
 
 def test_order_issued_equal_size_batch():
     batch, order = make_batch_and_line("ELEGANT-LAMP", batch_qty=5, order_qty=5)
-    assert batch.allocate(order) is True
+    assert batch.can_allocate(order) is True
 
-# test same orderline cannot be allocate twice 
+def test_cannot_allocate_mismatched_sku():
+    batch = Batch(id=0, sku="ELEGANT_LAMP", quantity=5, eta=date.today())
+    line = OrderLine(order_ref=100, sku="BULKY_LAMP", quantity=2)
+    assert batch.can_allocate(line) is False
+
 # test batch with lowest ETA is chosen to allocate 
+
+# testing deallocation 
+def test_can_only_deallocate_allocated_lines():
+    batch, unallocated_line = make_batch_and_line("DELICATE-NECKLACE", 20, 2)
+    batch.deallocate(unallocated_line)
+    assert batch.available_quantity == 20
+
+# test same orderline cannot be allocate twice (idempotent)
+def test_allocation_is_idempotent():
+    batch, order_line = make_batch_and_line("GOALY-GLOVES", 20, 2)
+    batch.allocate(order_line)
+    batch.allocate(order_line)
+    assert batch.available_quantity == 18
+
 
